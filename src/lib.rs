@@ -112,7 +112,10 @@ fn get_blame_file(lua: &Lua, (path, line): (String, f64)) -> LuaResult<LuaTable>
 
     match Repository::discover(directory) {
         Ok(repository) => {
-            let blame_file = repository.blame_file(path_str, None).unwrap();
+            let repository_path = repository.path().parent().unwrap();
+            let relative_path = path_str.strip_prefix(repository_path).unwrap();
+
+            let blame_file = repository.blame_file(relative_path, None).unwrap();
 
             match blame_file.get_line(line as usize) {
                 Some(blame_line) => {
