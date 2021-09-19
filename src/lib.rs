@@ -1,5 +1,6 @@
 use git2::{Repository, StatusOptions};
 use mlua::prelude::*;
+use std::path::Path;
 
 fn get_branch() -> String {
     let directory = ".";
@@ -103,11 +104,40 @@ fn get_branch_name(lua: &Lua, _: String) -> LuaResult<LuaString> {
     Ok(branch_name)
 }
 
+fn get_blame_file(lua: &Lua, (path, line): (String, f64)) -> LuaResult<LuaTable> {
+    let blame = lua.create_table()?;
+
+    let path_str = Path::new(&path);
+    let directory = ".";
+
+    match Repository::discover(directory) {
+        Ok(repository) => {
+            let blame_file = repository.blame_file(path_str, None).unwrap();
+
+            match blame_file.get_line(line as usize) {
+                Some(blame_line) => {
+                    let blame_line_commit_id = blame_line.final_commit_id();
+
+                    let commit = repository.find_commit(blame_line_commit_id).unwrap();
+
+                    blame.set("author", commit.author().name().unwrap_or(""))?;
+                    blame.set("message", commit.message().unwrap_or(""))?;
+                }
+                None => (),
+            };
+        }
+        Err(_) => (),
+    };
+
+    Ok(blame)
+}
+
 #[mlua::lua_module]
 fn git_utils(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
     exports.set("branch", lua.create_function(get_branch_name)?)?;
+    exports.set("blame", lua.create_function(get_blame_file)?)?;
 
     Ok(exports)
 }
