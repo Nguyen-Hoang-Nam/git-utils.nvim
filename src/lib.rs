@@ -2,26 +2,29 @@ use git2::{Repository, StatusOptions};
 use mlua::prelude::*;
 use std::path::Path;
 
-fn get_branch() -> String {
+// Redit https://github.com/xcambar/purs/blob/master/src/precmd.rs
+fn get_head_shortname(repository: &Repository) -> Option<String> {
+    let head = repository.head().ok()?;
+    if let Some(shorthand) = head.shorthand() {
+        if shorthand != "HEAD" {
+            return Some(shorthand.to_string());
+        }
+    }
+
+    let object = head.peel(git2::ObjectType::Commit).ok()?;
+    let short_id = object.short_id().ok()?;
+
+    Some(format!(
+        ":{}",
+        short_id.iter().map(|ch| *ch as char).collect::<String>()
+    ))
+}
+
+pub fn get_branch() -> String {
     let directory = ".";
     return match Repository::discover(directory) {
         Ok(repository) => {
-            return match repository.head() {
-                Ok(head) => {
-                    let head_name = head.shorthand().unwrap();
-
-                    let branch = repository
-                        .find_branch(head_name, git2::BranchType::Local)
-                        .unwrap()
-                        .name()
-                        .unwrap()
-                        .unwrap()
-                        .to_string();
-
-                    return branch;
-                }
-                Err(_) => "".to_string(),
-            };
+            return get_head_shortname(&repository).unwrap();
         }
         Err(_) => "".to_string(),
     };
