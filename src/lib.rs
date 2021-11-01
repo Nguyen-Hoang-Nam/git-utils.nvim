@@ -24,7 +24,12 @@ pub fn get_branch() -> String {
     let directory = ".";
     return match Repository::discover(directory) {
         Ok(repository) => {
-            return get_head_shortname(&repository).unwrap();
+            return match repository.head() {
+                Ok(_) => {
+                    return get_head_shortname(&repository).unwrap();
+                }
+                Err(_) => "".to_string(),
+            };
         }
         Err(_) => "".to_string(),
     };
